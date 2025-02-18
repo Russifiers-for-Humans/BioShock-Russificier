@@ -10,7 +10,7 @@
 #define AppDescription "Русификатор текста и звука"                                     ; Описание программы
 #define Typ "Russificier"                                                                    ; Тип приложения
 ; Практически никогда не меняется
-#define AppVer "1.0"                                                                        ; Версия установщика
+#define AppVer "2.0"                                                                        ; Версия установщика
 #define Platz "C:\Users\TeMeR\Documents\GitHub"                                                    ; Место
 ; Константы
 #define Copyright "Folk"                                                                  ; (констант)Копирайт
@@ -26,7 +26,7 @@
 
 #define UnArcivProg "7zG.EXE"
 #define FolderUnArcivProg "7z"
-#define Arciv "data.zip.001"
+#define Arciv "data.7z.001"
 [Setup]
 ; Номер приложения для его удаление лучше все время не забывать разный совать. Проверка уникальный для: BioShock Russificier
 AppId={{6AD15469-28DD-4392-BB54-6DEEB1074CAB}
@@ -68,9 +68,9 @@ DisableWelcomePage=no
 ;Если установлено значение «нет», включает страницу "Спасибо за установку"
 DisableFinishedPage=no
 //--------------------------------------Compression--------------------------------------\\
-DiskSpanning=true
+;DiskSpanning=true
 ; Размер в байтах твоего setup1.bin
-DiskSliceSize=2100000000
+;DiskSliceSize=2100000000
 ; Метод сжатия
 Compression=lzma2/ultra64
 ; Если установлено значение «да»,включает сжатие в один поток(лучше сжимает, но проблем больше) 
@@ -102,13 +102,15 @@ Name: "Rus\sound";    Description: "звука"; Types: full
 ; Ресурсы
 Source: {#Location}\{#FolderUnArcivProg}\*;  DestDir: "{tmp}";      Flags: deleteafterinstall
 
-Source: {#Location}\{#GameName}\Rus\text\*;  DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Components: Rus\text
-Source: {#Location}\{#GameName}\Rus\sound\*;  DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Components: Rus\sound
+;Source: {#Location}\{#GameName}\Rus\text\*;  DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Components: Rus\text
+;Source: {#Location}\{#GameName}\Rus\sound\*;  DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Components: Rus\sound
 
-Source: {#Location}\{#GameName}\Setting\*;  DestDir: "{userappdata}\{#GameName}"; Flags: ignoreversion recursesubdirs createallsubdirs; Components: Rus
+Source: {#Location}\{#GameName}\Setting\*;  DestDir: "{userappdata}\{#GameName}"; Components: Rus;        Flags: ignoreversion recursesubdirs createallsubdirs 
+Source: "{tmp}\text.zip";                   DestDir: "{tmp}";                     Components: Rus\text;   Flags: external deleteafterinstall; ExternalSize: 942295393
+Source: "{tmp}\sound.zip";                  DestDir: "{tmp}";                     Components: Rus\sound;  Flags: external deleteafterinstall; ExternalSize: 1429153568
 
-Source: {#Location}\{#GameName}\zip\text\*;       DestDir: "{tmp}";      Flags: deleteafterinstall;Components: Rus\text
-Source: {#Location}\{#GameName}\zip\sound\*;       DestDir: "{tmp}";      Flags: deleteafterinstall;Components: Rus\sound
+;Source: {#Location}\{#GameName}\zip\text\*;       DestDir: "{tmp}";      Flags: deleteafterinstall;Components: Rus\text
+;Source: {#Location}\{#GameName}\zip\sound\*;       DestDir: "{tmp}";      Flags: deleteafterinstall;Components: Rus\sound
 
 
 [Icons]
@@ -120,12 +122,13 @@ Name: "{userprograms}\{#AppPublisher}\{#GameName}\{cm:UninstallProgram,{#Product
 [Run]
  ;На финальной страницу спрашивает о запуске финального продукта
 ;Filename: "{tmp}\{#UnArcivProg}"; Parameters: "x {tmp}\{#Arciv} -y -o""{app}"""
-Filename: "{tmp}\{#UnArcivProg}"; Parameters: "x {tmp}\Content.zip -y -o""{app}\"""; Components: Rus\text
-Filename: "{tmp}\{#UnArcivProg}"; Parameters: "x {tmp}\Content.zip.001 -y -o""{app}\"""; Components: Rus\sound  
+Filename: "{tmp}\{#UnArcivProg}"; Parameters: "x {tmp}\text.zip  -y -o""{app}\""";        Components: Rus\text;  
+Filename: "{tmp}\{#UnArcivProg}"; Parameters: "x {tmp}\sound.zip  -y -o""{app}\""";        Components: Rus\sound; 
  
 [UninstallDelete]
-Type: files;          Name: "{app}\Content\BinkMovies\attractMovie.bik"; Components: Rus\sound            
-Type: files;          Name: "{app}\Content\Sounds_Windows\streams_1_audio.rus_fsb"; Components: Rus            
+Type: files; 		  Name: "{app}\Readme_rus.rtf";                                  Components: Rus\text  
+Type: filesandordirs; Name: "{app}\Content";      Components: Rus          
+Type: filesandordirs; Name: "{app}\Builds";      Components: Rus\text          
 
 [Code]
 var
@@ -153,6 +156,50 @@ begin
     end;
   end;
   Result := InstallationPath;
+end;
+
+//Downloader
+var
+  DownloadPage: TDownloadWizardPage;
+
+function OnDownloadProgress(const Url, FileName: String; const Progress, ProgressMax: Int64): Boolean;
+begin
+  if Progress = ProgressMax then
+    Log(Format('Successfully downloaded file to {tmp}: %s', [FileName]));
+  Result := True;
+end;
+
+procedure InitializeWizard;
+begin
+  DownloadPage := CreateDownloadPage(SetupMessage(msgWizardPreparing), SetupMessage(msgPreparingDesc), @OnDownloadProgress);
+end;
+function NextButtonClick(CurPageID: Integer): Boolean;
+begin
+  if CurPageID = wpReady then begin
+    DownloadPage.Clear;// sha256 7z
+  if IsComponentSelected('Rus\text') then begin
+      DownloadPage.Add('https://github.com/Russifiers-for-Humans/BioShock-Russificier/releases/download/Final/text.zip', 'text.zip', 'f0d362c9b15b2233c0bc2de8d2b848fbc8a16fcf808936a5031c17d0cc83c472');
+    end;
+  if IsComponentSelected('Rus\sound') then begin
+      DownloadPage.Add('https://github.com/Russifiers-for-Humans/BioShock-Russificier/releases/download/Final/sound.zip', 'sound.zip', '81a2e0683c548171cd542e9da1e2fcf3aed41bbe914818a038f82e94896ebf56');
+  end;
+    DownloadPage.Show;
+    try
+      try
+        DownloadPage.Download; // This downloads the files to {tmp}
+        Result := True;
+      except
+        if DownloadPage.AbortedByUser then
+          Log('Aborted by user.')
+        else
+          SuppressibleMsgBox(AddPeriod(GetExceptionMessage), mbCriticalError, MB_OK, IDOK);
+        Result := False;
+      end;
+    finally
+      DownloadPage.Hide;
+    end;
+  end else
+    Result := True;
 end;
 
 [Languages]
